@@ -1,7 +1,5 @@
-// 香港巴士 API 來源：https://data.gov.hk/tc-data/dataset/hk-td-tis_21-etabus-routes-stop
-// 九巴、新巴/城巴 都有 API
-
-const map = L.map("map").setView([22.3193, 114.1694], 12); // 中環中心點
+// 初始化地圖
+const map = L.map("map").setView([22.3193, 114.1694], 12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap",
 }).addTo(map);
@@ -10,7 +8,13 @@ const routeSelect = document.getElementById("routeSelect");
 const showRouteBtn = document.getElementById("showRoute");
 let busMarkers = [];
 
-// 🔹 1. 取九巴所有路線
+// 巴士 icon（直接用網上 URL）
+const busIcon = L.icon({
+  iconUrl: "https://cdn-icons-png.flaticon.com/512/61/61231.png",
+  iconSize: [32, 32],
+});
+
+// 🔹 1. 載入所有九巴路線
 async function loadRoutes() {
   let res = await fetch("https://data.etabus.gov.hk/v1/transport/kmb/route/");
   let data = await res.json();
@@ -24,13 +28,13 @@ async function loadRoutes() {
 }
 loadRoutes();
 
-// 🔹 2. 顯示路線 + 巴士實時位置
+// 🔹 2. 顯示路線 + 巴士站 + 模擬實時車
 showRouteBtn.addEventListener("click", async () => {
   clearMarkers();
   const routeNo = routeSelect.value;
   if (!routeNo) return;
 
-  // 路線站點
+  // 取路線站點
   let stopsRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${routeNo}/inbound/1`);
   let stopsData = await stopsRes.json();
 
@@ -43,21 +47,20 @@ showRouteBtn.addEventListener("click", async () => {
     L.marker([lat, long]).addTo(map).bindPopup(`巴士站: ${stopInfo.data.name_tc}`);
   });
 
-  // 🔹 3. 每 5 秒更新實時巴士位置
+  // 🔹 模擬巴士每 5 秒移動（真實 API 沒有 GPS，只能假裝）
   setInterval(async () => {
     clearMarkers();
-    let etaRes = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/${stopsData.data[0].stop}/${routeNo}/1`);
-    let etaData = await etaRes.json();
 
-    etaData.data.forEach(bus => {
-      if (bus.eta) {
-        let lat = 22.3193 + (Math.random() - 0.5) * 0.1; // demo 假位置
-        let long = 114.1694 + (Math.random() - 0.5) * 0.1;
-        let marker = L.marker([lat, long], { icon: busIcon })
-          .addTo(map)
-          .bindPopup(`路線 ${bus.route}<br>車牌: ${bus.license_plate || "未知"}<br>到達時間: ${bus.eta}`);
-        busMarkers.push(marker);
-      }
+    stopsData.data.slice(0, 5).forEach((stop, index) => {
+      let latShift = 0.001 * index + (Math.random() - 0.5) * 0.002;
+      let longShift = 0.001 * index + (Math.random() - 0.5) * 0.002;
+      let stopLat = 22.3193 + latShift;
+      let stopLong = 114.1694 + longShift;
+
+      let marker = L.marker([stopLat, stopLong], { icon: busIcon })
+        .addTo(map)
+        .bindPopup(`路線 ${routeNo}<br>模擬巴士位置`);
+      busMarkers.push(marker);
     });
   }, 5000);
 });
@@ -67,9 +70,3 @@ function clearMarkers() {
   busMarkers.forEach(m => map.removeLayer(m));
   busMarkers = [];
 }
-
-// 巴士 icon
-const busIcon = L.icon({
-  iconUrl: "assets/bus-icon.png",
-  iconSize: [32, 32],
-});
