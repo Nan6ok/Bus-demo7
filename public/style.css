@@ -5,6 +5,10 @@ body {
   text-align: center;
 }
 
+h1 {
+  margin: 10px;
+}
+
 #map {
   height: 80vh;
   width: 100%;
